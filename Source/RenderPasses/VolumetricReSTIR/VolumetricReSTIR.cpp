@@ -35,11 +35,13 @@ namespace
     const std::string kShaderDirectory = "RenderPasses/VolumetricReSTIR/";
     const std::string kAccumulatedColorOutput = "accumulated_color";
     const std::string kMotionVec = "mvec";
+    const std::string kDepth = "depth";
 
     const Falcor::ChannelList kOutputChannels =
     {
         { kAccumulatedColorOutput,     "gOutputFrame",    "accumulated output color (linear)", true /* optional */      },
-        { kMotionVec,     "gMotionVec",    "motion vector", true /* optional */, ResourceFormat::RG32Float      }
+        { kMotionVec,     "gMotionVec",    "motion vector", true /* optional */, ResourceFormat::RG32Float      },
+        { kDepth,     "gOutputDepth1",    "depth", true /* optional */    }
     };
 
     const Gui::DropdownList kEmissiveSamplerList =
@@ -101,6 +103,7 @@ VolumetricReSTIR::VolumetricReSTIR(const Dictionary& dict)
         mEmissiveSamplerType = EmissiveLightSamplerType::Power;
     }
 
+
     // TODO: allow overriding these options
 
     if (mParams.mUseSurfaceScene)
@@ -130,6 +133,10 @@ VolumetricReSTIR::VolumetricReSTIR(const Dictionary& dict)
 
     mLastMaxBounces = mParams.mMaxBounces;
 
+    /// <summary>
+    /// TODO:IMPORTANT
+    /// </summary>
+    /// <param name="dict"></param>
     mpTraceRaysPass = createSimpleComputePass(kShaderDirectory + "TraceRays.cs.slang", "main", mDefaultDefines);
     mSpatialReusePass = createSimpleComputePass(kShaderDirectory + "SpatialReuse.cs.slang", "main", mDefaultDefines);
     mTemporalReusePass = createSimpleComputePass(kShaderDirectory + "TemporalReuse.cs.slang", "main", mDefaultDefines);
@@ -358,10 +365,12 @@ void VolumetricReSTIR::execute(RenderContext* pRenderContext, const RenderData& 
         mOptionsChanged = false;
     }
 
+    // Calculate the size of the reservoir for each pixel
     int reservoirCount = scrWidth * scrHeight;
-
+    ///TODO:unclear
     uint32_t reservoirSize = sizeof(Reservoir) + (mParams.mMaxBounces == 1 ? 0 : 4) + (mParams.mMaxBounces > 1 && mParams.mVertexReuse ? 4 : 0);
 
+    // Check if the number of max bounces has changed, and if so, update relevant defines in shaders
     if (mParams.mMaxBounces != mLastMaxBounces && !mParams.mUseReference)
     {
         mSpatialReusePass->addDefine("MAX_BOUNCES", std::to_string(mParams.mMaxBounces));
@@ -373,6 +382,7 @@ void VolumetricReSTIR::execute(RenderContext* pRenderContext, const RenderData& 
 		mLastMaxBounces = mParams.mMaxBounces;
     }
 
+    // Check if vertex reuse has changed, and if so, update relevant defines in shaders
     if (mParams.mMaxBounces > 1 && mLastVertexReuse != mParams.mVertexReuse)
     {
         if (mParams.mVertexReuse)
@@ -407,15 +417,16 @@ void VolumetricReSTIR::execute(RenderContext* pRenderContext, const RenderData& 
         }
         mLastVertexReuse = mParams.mVertexReuse;
     }
-
+    // Check if the screen size has changed
     bool isScreenSizeChanged = renderData[kAccumulatedColorOutput]->asTexture()->getHeight() != scrHeight || renderData[kAccumulatedColorOutput]->asTexture()->getWidth() != scrWidth;
 
     // compute extra bounce storage
     int totalReservoirCount = reservoirCount;
     int totalExtraBounceReservoirCount = reservoirCount * (mParams.mMaxBounces - 1);
-
+    ///TODO:unclear
     uint32_t ExtraBounceReservoirSizeCollection = (mParams.mMaxBounces - 1) * 12;
 
+    // Check if the buffer needs to be created or resized based on options and screen size changes
     if (!mParams.mUseReference && (isScreenSizeChanged || !mPerPixelReservoirBuffer[0] || wasOptionsChanged && mPerPixelReservoirBuffer[0]->getSize() != totalReservoirCount * reservoirSize))
     {
         printf("Total Reservoir Count: %d\n", totalReservoirCount);
@@ -427,12 +438,14 @@ void VolumetricReSTIR::execute(RenderContext* pRenderContext, const RenderData& 
         printf("Reservoir size: %d\n", (int)reservoirSize);
     }
 
+    // Check if the VBuffer (Visibility Buffer) needs to be created or resized based on options and screen size changes
     if (mParams.mUseSurfaceScene && (isScreenSizeChanged || !mVBuffer || wasOptionsChanged || (mPerPixelReservoirBuffer[0] && mPerPixelReservoirBuffer[0]->getSize() != totalReservoirCount * reservoirSize)))
     {
         mVBuffer = Buffer::createStructured(sizeof(VBufferItem), scrHeight * scrWidth);
         mTemporalVBuffer = Buffer::createStructured(sizeof(VBufferItem), scrHeight * scrWidth);
     }
 
+    // Check if the Extra Bounce Reservoir buffer needs to be created or resized based on options and screen size changes
     if (!mParams.mUseReference && mParams.mMaxBounces > 1 && (isScreenSizeChanged || !mPerPixelExtraBounceReservoirBuffer[0] || wasOptionsChanged && mPerPixelExtraBounceReservoirBuffer[0]->getSize() != totalExtraBounceReservoirCount * ExtraBounceReservoirSizeCollection))
     {
         mPerPixelExtraBounceReservoirBuffer[0] = Buffer::createStructured(ExtraBounceReservoirSizeCollection, totalExtraBounceReservoirCount);
@@ -442,6 +455,7 @@ void VolumetricReSTIR::execute(RenderContext* pRenderContext, const RenderData& 
 
 
     // handle window resizing / change of temporal SPP
+    // Check if the color buffer needs to be created or resized based on screen size changes
     if (!mPerPixelColorBuffer[0] ||
         isScreenSizeChanged)
     {
@@ -449,11 +463,15 @@ void VolumetricReSTIR::execute(RenderContext* pRenderContext, const RenderData& 
         mPerPixelColorBuffer[1] = Texture::create2D(scrWidth, scrHeight, ResourceFormat::RGBA32Float, 1, 1, nullptr, ResourceBindFlags::UnorderedAccess | ResourceBindFlags::ShaderResource);
     }
 
+    // Define the number of initial sampling rounds and total rounds for the rendering process
     int numInitialSamplingRounds = 1;
+    ///TODO:unclear
     int numTotalRounds = (int)(mParams.mEnableSpatialReuse ? mParams.mSpatialReuseRounds : 0) + (int)mParams.mEnableTemporalReuse + 1 + numInitialSamplingRounds;
 
+    // Define parameters for the R2 (Reuse and Reprojection) technique
     R2Params r2Params = { reservoirCount, mParams.mSpatialSampleCount, mParams.mSpatialReuseRounds, 16 };
 
+    // Define different sampling options for different stages of rendering: initial, spatial, and final
     SamplingOptions initialOptions = {
     kAnalyticTracking,
     mParams.mInitialLightingTrackingMethod,
@@ -534,6 +552,8 @@ void VolumetricReSTIR::execute(RenderContext* pRenderContext, const RenderData& 
         vars["gLinearSampler"] = mpSampler;
         vars["gPointSampler"] = mpPointSampler;
 
+        
+
         vars["gOutputColor"] = mPerPixelColorBuffer[0];
         vars["gOutputReservoirs"] = mPerPixelReservoirBuffer[0];
         vars["gReservoirFeatureBuffer"] = mReservoirFeatureBuffer;
@@ -593,6 +613,8 @@ void VolumetricReSTIR::execute(RenderContext* pRenderContext, const RenderData& 
             vars["gReservoirFeatureBuffer"] = mReservoirFeatureBuffer;
             vars["gTemporalReservoirFeatureBuffer"] = mTemporalReservoirFeatureBuffer;
             vars["gMotionVec"] = renderData[kMotionVec]->asTexture();
+
+            vars["gOutputDepth1"] = renderData[kDepth]->asTexture();
 
             if (mParams.mUseSurfaceScene)
             {
@@ -696,6 +718,7 @@ void VolumetricReSTIR::execute(RenderContext* pRenderContext, const RenderData& 
             Profiler::endEvent("Spatial Reuse");
         }
 
+    // Copy resources for temporal reuse (if enabled)
     if (!mFreezeFrame)
         if (!mParams.mUseReference && mParams.mEnableTemporalReuse)
         {
@@ -761,19 +784,22 @@ void VolumetricReSTIR::execute(RenderContext* pRenderContext, const RenderData& 
         Profiler::endEvent("Final Shading");
     }
 
-
+    // End of frame handling
     mTemporalSampleAccumulated = 1;
 
+    // Update previous view and projection matrices for temporal reuse
     mPrevViewMat = mpScene->getCamera()->getViewMatrix();
     mPrevProjMat = mpScene->getCamera()->getProjMatrix();
     mpScene->getCamera()->getRayTracingFrames(mPrevCameraU, mPrevCameraV, mPrevCameraW, mPrevCameraPosW);
 
+    // Update frame and animation frame count
     if (!mFreezeFrame)
         mFrameCount++;
 
     if (!mFreezeFrame && !mFreezeAnimation)
         mAnimationFrameCount++;
 
+    // Check if it's time to freeze the animation
     if (mAnimationFrameCount == mAnimationFreezedFrame)
     {
         mFreezeFrame = true;

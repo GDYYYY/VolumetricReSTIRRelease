@@ -72,6 +72,9 @@ RWStructuredBuffer<ExtraBounceReservoir> gTemporalExtraBounceReservoirs;
 StructuredBuffer<ReservoirFeatures> gReservoirFeatureBuffer;
 StructuredBuffer<ReservoirFeatures> gTemporalReservoirFeatureBuffer;
 RWTexture2D<float2> gMotionVec;
+
+RWTexture2D<float3> gOutputDepth1;
+
 #ifdef SURFACE_SCENE
 StructuredBuffer<VBufferItem> gVBuffer;
 StructuredBuffer<VBufferItem> gTemporalVBuffer;
@@ -155,6 +158,8 @@ void main(uint3 DTid : SV_DispatchThreadID)
                     reprojDepth = RejectionSampleRandomPointByDensity(ray, sg, kNumMaxMips + gReprojectionMipLevel); // always use conservative grid!
                 }
             }
+
+            gOutputDepth1[pixelPos][0] = reprojDepth;
 
             float3 p = cameraRay.origin + cameraRay.dir * reprojDepth;
 

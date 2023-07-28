@@ -1,5 +1,6 @@
 @echo off
 REM Please build the solution and download the scenes before running these
+REM Bin\x64\Release\Mogwai.exe --script=E:\Volume\ReSTIR\Falcor\Source\Mogwai\Data\ForwardRenderer.py
 Bin\x64\Release\Mogwai.exe --script=Source\RenderPasses\VolumetricReSTIR\Scripts\run_plume_static.py
 REM Bin\x64\Release\Mogwai.exe --script=Source\RenderPasses\VolumetricReSTIR\Scripts\run_plume.py
 REM Bin\x64\Release\Mogwai.exe --script=Source\RenderPasses\VolumetricReSTIR\Scripts\run_bunny_tree.py

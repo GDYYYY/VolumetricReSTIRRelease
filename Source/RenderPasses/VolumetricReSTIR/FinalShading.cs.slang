@@ -138,6 +138,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     if (any(isnan(curColor) || isinf(curColor))) curColor = 0.f;
 
     gOutputFrame[pixelPos] = curColor;
+    //gOutputFrame[pixelPos] = float4(0.f,0.f,0.f,0.f);
 }
 
 

@@ -51,6 +51,7 @@ cbuffer CB
     SamplingOptions gSpatialSamplingOptions;
 }
 
+
 RWTexture2D<float4> gOutputColor;
 RWStructuredBuffer<Reservoir> gOutputReservoirs;
 RWStructuredBuffer<ExtraBounceReservoir> gOutputExtraBounceReservoirs;
