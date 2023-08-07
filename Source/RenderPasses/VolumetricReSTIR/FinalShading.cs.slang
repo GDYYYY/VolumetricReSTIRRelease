@@ -62,6 +62,8 @@ StructuredBuffer<ExtraBounceReservoir> gCurExtraBounceReservoirs;
 StructuredBuffer<ReservoirFeatures> gReservoirFeatureBuffer;
 RWTexture2D<float4> gCurrentColors;
 RWTexture2D<float4> gOutputFrame;
+RWTexture2D<float3> gOutputReservoir;
+RWTexture2D<float3> gOutputReservoirLight;
 #ifdef SURFACE_SCENE
 StructuredBuffer<VBufferItem> gVBuffer;
 #endif
@@ -128,6 +130,15 @@ void main(uint3 DTid : SV_DispatchThreadID)
             curOutputColor *= W;
 
             outputColor += curOutputColor;
+
+            gOutputReservoir[pixelPos][0] = curReservoir.runningSum;
+            gOutputReservoir[pixelPos][1] = curReservoir.p_y;//M;
+            gOutputReservoir[pixelPos][2] = curReservoir.depth;
+
+            gOutputReservoirLight[pixelPos][0] = curReservoir.lightUV[0];
+            gOutputReservoirLight[pixelPos][1] = curReservoir.lightUV[1];
+            //gOutputReservoirLight[pixelPos][2] = curReservoir.lightID;
+            //gOutputReservoir[pixelPos][3] = curReservoir.p_y;
         }
     }
 
@@ -138,6 +149,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
     if (any(isnan(curColor) || isinf(curColor))) curColor = 0.f;
 
     gOutputFrame[pixelPos] = curColor;
+
     //gOutputFrame[pixelPos] = float4(0.f,0.f,0.f,0.f);
 }
 

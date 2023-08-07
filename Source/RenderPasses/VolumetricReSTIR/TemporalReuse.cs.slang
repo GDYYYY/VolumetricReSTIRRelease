@@ -159,9 +159,11 @@ void main(uint3 DTid : SV_DispatchThreadID)
                 }
             }
 
-            gOutputDepth1[pixelPos][0] = reprojDepth;
+            //gOutputDepth1[pixelPos][0] = reprojDepth;
 
             float3 p = cameraRay.origin + cameraRay.dir * reprojDepth;
+            gOutputDepth1[pixelPos] = p;
+            //gOutputDepth1[pixelPos][0] = reprojDepth;
 
             // find last frame world position if having velocity grid
             if (gScene.volumeDesc.hasVelocity && gScene.volumeDesc.hasAnimation && reprojectUsingVolumeSample)

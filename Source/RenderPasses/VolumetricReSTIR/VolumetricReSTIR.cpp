@@ -36,12 +36,16 @@ namespace
     const std::string kAccumulatedColorOutput = "accumulated_color";
     const std::string kMotionVec = "mvec";
     const std::string kDepth = "depth";
+    const std::string kReservoir = "reservoir";
+    const std::string kReservoirLight = "reservoirLight";
 
     const Falcor::ChannelList kOutputChannels =
     {
         { kAccumulatedColorOutput,     "gOutputFrame",    "accumulated output color (linear)", true /* optional */      },
         { kMotionVec,     "gMotionVec",    "motion vector", true /* optional */, ResourceFormat::RG32Float      },
-        { kDepth,     "gOutputDepth1",    "depth", true /* optional */    }
+        { kDepth,     "gOutputDepth1",    "depth", true /* optional */    },
+        { kReservoir,     "gOutputReservoir",    "reservoir", true /* optional */    },
+        { kReservoirLight,     "gOutputReservoirLight",    "reservoir light info", true /* optional */    }
     };
 
     const Gui::DropdownList kEmissiveSamplerList =
@@ -756,6 +760,9 @@ void VolumetricReSTIR::execute(RenderContext* pRenderContext, const RenderData& 
         vars["gCurExtraBounceReservoirs"] = mPerPixelExtraBounceReservoirBuffer[totalRoundId % 2];
         vars["gOutputFrame"] = renderData[kAccumulatedColorOutput]->asTexture();
         vars["gReservoirFeatureBuffer"] = mReservoirFeatureBuffer;
+
+        vars["gOutputReservoir"] = renderData[kReservoir]->asTexture();
+        vars["gOutputReservoirLight"] = renderData[kReservoirLight]->asTexture();
 
         if (mParams.mUseSurfaceScene)
             vars["gVBuffer"] = mVBuffer;
